@@ -61,7 +61,7 @@
         input_file.close()
         input_file = open(file, 'r')
 
-        # Читаем JSON
+        # Читаем JSON, подготавливаем данные
         if file == 'hosts.json':
             json_text = input_file.read()
             if len(json_text) != 0:
@@ -78,7 +78,7 @@
                     n += 1
                 print(f'Предыдущий лог JSON был пуст. Создали новый словарь: {log_from_json.items()}')
 
-        # Читаем YAML
+        # Читаем YAML, подготавливаем данные
         elif file == 'hosts.yml':
             yaml_text = input_file.read()
             if len(yaml_text) != 0:
