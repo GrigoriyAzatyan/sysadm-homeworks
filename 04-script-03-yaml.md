@@ -124,3 +124,134 @@
 * Перекодировать данные из исходного формата во второй доступный (из JSON в YAML, из YAML в JSON)
 * При обнаружении ошибки в исходном файле - указать в стандартном выводе строку с ошибкой синтаксиса и её номер
 * Полученный файл должен иметь имя исходного файла, разница в наименовании обеспечивается разницей расширения файлов
+
+Текст скрипта:
+
+    #! /usr/bin/env python3
+
+    import argparse
+    import os
+    import json
+    import yaml
+    import re
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--file')
+    arg = parser.parse_args()
+
+    # Проверяем существование файла
+    print()
+    print('Проверяем путь к файлу...')
+    print()
+    check_file = os.access(arg.file, os.F_OK)
+    if not check_file:
+        print(f'Такого файла нет: {arg.file}! Идите лесом.')
+        print()
+        print('***************************************************')
+        print('Работа скрипта завершена неудачей. И все из-за вас.')
+        exit()
+    else:
+        print(f'Файл существует по указанному пути: {arg.file}')
+
+    # Проверяем расширение файла
+    if arg.file[-5:] == '.json':
+        name_format = 'json'
+    elif arg.file[-5:] == '.yaml' or arg.file[-4:] == '.yml':
+        name_format = 'yaml'
+    else:
+        name_format = 'wrong'
+        print('Не распознано расширение в имени файла!')
+        print(f'Я принимаю только файлы с расширениями *.json, *.yaml и *.yml.')
+        print()
+        print('************************************')
+        print('Работа скрипта завершена неудачей.')
+        print('Живите теперь с этим. Хорошего дня.')
+        exit()
+
+    # Функция - парсер JSON
+    # noinspection PyBroadException
+    def json_parser(input_text):
+        try:
+            parse_result = json.loads(input_text)
+        except Exception as ex:
+            error_text = re.findall('(^[a-zA-Z\s]+)(?=\S\sline)', str(ex))
+            error_line = re.findall('((?<=line )\d+)', str(ex))
+            parse_result = 'Ошибка! Ваш кривой JSON содержит ошибку в строке (строках) ' + str(error_line[0:]) + '. Сообщение ошибки:\n' + str(error_text[0])
+        finally:
+            return parse_result
+
+
+    # Функция - парсер YAML
+    # noinspection PyBroadException
+    def yaml_parser(input_text):
+        try:
+            parse_result = yaml.safe_load(file_text)
+        except Exception as ex:
+            error_line = re.findall('((?<=line )\d+)', str(ex))
+            parse_result = 'Ошибка! Ваш кривой YAML содержит ошибку в строке (строках) ' + str(error_line[0:]) + '. Сообщение ошибки:\n' + str(ex)
+        finally:
+            return parse_result
+
+
+    # Начинаем парсить файл
+    file = open(arg.file, 'r')
+    file_text = file.read()
+
+    # Читаем как JSON
+    json_parse_result = json_parser(file_text)
+    if str(json_parse_result)[0:6] != 'Ошибка':
+        file_format = 'json'
+        output_ext = 'yml.output'
+        if name_format == file_format:
+            check_result = 'OK'
+            print()
+            print(f'Все ОК, файл в формате JSON. Получены объекты: {json_parse_result}')
+        else:
+            check_result = 'Warning'
+            print()
+            print(f'Расширение файла YAML, но сам файл в формате JSON. Получены объекты: {json_parse_result}')
+
+    else:
+        # Читаем как YAML
+        yaml_parse_result = yaml_parser(file_text)
+        if str(yaml_parse_result)[0:6] != 'Ошибка':
+            file_format = 'yaml'
+            output_ext = 'json.output'
+            if name_format == file_format:
+                check_result = 'OK'
+                print()
+                print(f'Все ОК, файл в формате YAML. Получены объекты: {yaml_parse_result}')
+            else:
+                check_result = 'Warning'
+                print()
+                print(f'Расширение файла JSON, но сам файл в формате YAML. Получены объекты: {yaml_parse_result}')
+        else:
+            check_result = 'Error'
+            print('\n==========================\nВаш файл не удалось распарсить ни как JSON, ни как YAML. Вы понимаете, до чего докатились?!')
+            print()
+            print(f'Сообщение парсера JSON:\n==========================\n{json_parse_result}')
+            print()
+            print(f'Сообщение парсера YAML:\n==========================\n{yaml_parse_result}')
+            file.close()
+            exit()
+    file.close()
+
+    # Начинаем конвертировать!
+    if file_format == 'json':
+        output_result = yaml.dump(json_parse_result, sort_keys=False, indent=2)
+    elif file_format == 'yaml':
+        output_result = json.dumps(yaml_parse_result, indent=2)
+
+    # Сохраняем в файл
+    # Получаем имя без расширения
+    name_regexp = re.findall('(.*)(?=\.[a-z]+$)', arg.file)
+    name = name_regexp[0]
+    output_name = name + '.' + output_ext
+
+    with open(output_name, 'w+') as output_file:
+        output_file.write(output_result)
+
+    print()
+    print(f'Сохранено в файл: {output_name}')
+    print('Завершаем работу.')
+
